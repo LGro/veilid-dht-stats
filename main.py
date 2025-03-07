@@ -91,6 +91,7 @@ async def main(result: Path):
         # purge routes and DHT records to ensure we start fresh
         await api.debug("purge routes")
         await api.debug("record purge local")
+        await api.debug("record purge remote")
 
         rc = await api.new_routing_context()
         async with rc:
