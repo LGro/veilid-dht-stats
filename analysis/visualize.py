@@ -2,6 +2,7 @@ import argparse
 import json
 from pathlib import Path
 
+import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import requests
@@ -26,7 +27,7 @@ def main(stats_json_uri: str, out_directory: str):
             r["evaluation_start_unixtimes"][-1]
             - r["evaluation_start_unixtimes"][0]
             + r["evaluation_durations_s"][-1]
-            if r["evaluation_start_unixtimes"]
+            if len(r["evaluation_start_unixtimes"]) > 1
             else None
         ),
         axis=1,
@@ -38,15 +39,22 @@ def main(stats_json_uri: str, out_directory: str):
 
     # Visualize record lifetime for successes
     f, ax = plt.subplots()
+    bins = np.arange(
+        df_successes["lifetime_s"].dropna().min() / 60 / 60,
+        df_successes["lifetime_s"].dropna().max() / 60 / 60 + 1,
+        1,
+    )
     for time_interval, group in df_successes.groupby("evaluation_time_interval_h"):
+        if len(group["lifetime_s"].dropna()) == 0:
+            continue
         ax.hist(
-            group["lifetime_s"],
-            bins=range(0, int(df_successes["lifetime_s"].dropna().max()) + 1, 60 * 5),
+            group["lifetime_s"] / 60 / 60,
+            bins=bins,
             label=f"{time_interval}h",
             alpha=0.3,
         )
     ax.set_ylabel("Count")
-    ax.set_xlabel("DHT record lifetime\n(seconds, 5min bins)")
+    ax.set_xlabel("DHT record lifetime\n(hours, 1h bins)")
     ax.set_title(f"Successes ({len(df_successes)})")
     ax.legend()
     f.tight_layout()
@@ -55,17 +63,22 @@ def main(stats_json_uri: str, out_directory: str):
     # Visualize record lifetime for failures
     if len(df_failures) > 0:
         f, ax = plt.subplots()
+        bins = np.arange(
+            df_failures["lifetime_s"].dropna().min() / 60 / 60,
+            df_failures["lifetime_s"].dropna().max() / 60 / 60 + 1,
+            1,
+        )
         for time_interval, group in df_failures.groupby("evaluation_time_interval_h"):
+            if len(group["lifetime_s"].dropna()) == 0:
+                continue
             ax.hist(
-                group["lifetime_s"],
-                bins=range(
-                    0, int(df_failures["lifetime_s"].dropna().max()) + 1, 60 * 5
-                ),
+                group["lifetime_s"] / 60 / 60,
+                bins=bins,
                 label=f"{time_interval}h",
                 alpha=0.3,
             )
         ax.set_ylabel("Count")
-        ax.set_xlabel("DHT record lifetime\n(seconds, 5min bins)")
+        ax.set_xlabel("DHT record lifetime\n(hours, 1h bins)")
         ax.set_title(f"Failures ({len(df_failures)})")
         ax.legend()
         f.tight_layout()
@@ -75,14 +88,14 @@ def main(stats_json_uri: str, out_directory: str):
     f, ax = plt.subplots()
     ax.hist(
         df_successes["payload_size_b"],
-        bins=range(0, int(df["payload_size_b"].dropna().max()) + 1, 1000),
+        bins=range(0, int(df["payload_size_b"].dropna().max()) + 1000, 1000),
         label="Successes",
         alpha=0.6,
     )
     if len(df_failures) > 0:
         ax.hist(
             df_failures["payload_size_b"],
-            bins=range(0, int(df["payload_size_b"].dropna().max()) + 1, 1000),
+            bins=range(0, int(df["payload_size_b"].dropna().max()) + 1000, 1000),
             label="Failures",
             alpha=0.6,
         )
@@ -102,7 +115,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "stats_json_uri",
+        nargs="?",
         type=str,
+        default="http://65.108.215.98/veilid-dht-stats.json",
         help="The URL or local file system path for the JSON results file.",
     )
     parser.add_argument(
