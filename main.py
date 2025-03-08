@@ -123,6 +123,10 @@ async def main(result: Path):
             for e in new_experiments:
                 experiments[e["dht_record_key"]] = e
 
+        # purge DHT records to simulate records not available from our node
+        await api.debug("record purge local")
+        await api.debug("record purge remote")
+
     result.write_text(json.dumps(experiments))
 
 
