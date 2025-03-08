@@ -55,7 +55,10 @@ def main(stats_json_uri: str, out_directory: str):
         )
     ax.set_ylabel("Count")
     ax.set_xlabel("DHT record lifetime\n(hours, 1h bins)")
-    ax.set_title(f"Successes ({len(df_successes)})")
+    ax.set_title(
+        f"Successes ({len(df_successes["lifetime_s"].dropna())})\n"
+        "for different time intervals"
+    )
     ax.legend()
     f.tight_layout()
     f.savefig(out_directory / "lifetimes_successes.png")
@@ -79,7 +82,10 @@ def main(stats_json_uri: str, out_directory: str):
             )
         ax.set_ylabel("Count")
         ax.set_xlabel("DHT record lifetime\n(hours, 1h bins)")
-        ax.set_title(f"Failures ({len(df_failures)})")
+        ax.set_title(
+            f"Failures ({len(df_failures["lifetime_s"].dropna())})\n"
+            "for different time intervals"
+        )
         ax.legend()
         f.tight_layout()
         f.savefig(out_directory / "lifetimes_failures.png")
