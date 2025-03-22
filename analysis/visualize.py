@@ -1,5 +1,6 @@
 import argparse
 import json
+import math
 from pathlib import Path
 
 import numpy as np
@@ -32,6 +33,9 @@ def main(stats_json_uri: str, out_directory: str):
         ),
         axis=1,
     )
+    df["lifetime_h"] = df["lifetime_s"] / 60 / 60
+    df["lifetime_d"] = df["lifetime_h"] / 24
+    df["payload_size_kib"] = df["payload_size_b"] / 1024
 
     # Split into ongoing (successful) and stopped (failed) experiments
     df_successes = df[~df["next_evaluation_unixtime"].isna()]
@@ -40,23 +44,23 @@ def main(stats_json_uri: str, out_directory: str):
     # Visualize record lifetime for successes
     f, ax = plt.subplots()
     bins = np.arange(
-        df_successes["lifetime_s"].dropna().min() / 60 / 60,
-        df_successes["lifetime_s"].dropna().max() / 60 / 60 + 1,
+        math.floor(df_successes["lifetime_d"].dropna().min()),
+        math.ceil(df_successes["lifetime_d"].dropna().max()) + 1,
         1,
     )
     for time_interval, group in df_successes.groupby("evaluation_time_interval_h"):
-        if len(group["lifetime_s"].dropna()) == 0:
+        if len(group["lifetime_d"].dropna()) == 0:
             continue
         ax.hist(
-            group["lifetime_s"] / 60 / 60,
+            group["lifetime_d"],
             bins=bins,
-            label=f"{time_interval}h",
+            label=f"{time_interval}h ({len(group)})",
             alpha=0.3,
         )
     ax.set_ylabel("Count")
-    ax.set_xlabel("DHT record lifetime\n(hours, 1h bins)")
+    ax.set_xlabel("DHT record lifetime\n(days, 1 day bins)")
     ax.set_title(
-        f"Successes ({len(df_successes["lifetime_s"].dropna())})\n"
+        f"Successes ({len(df_successes["lifetime_d"].dropna())})\n"
         "for different time intervals"
     )
     ax.legend()
@@ -67,23 +71,23 @@ def main(stats_json_uri: str, out_directory: str):
     if len(df_failures) > 0:
         f, ax = plt.subplots()
         bins = np.arange(
-            df_failures["lifetime_s"].dropna().min() / 60 / 60,
-            df_failures["lifetime_s"].dropna().max() / 60 / 60 + 1,
+            math.floor(df_failures["lifetime_d"].dropna().min()),
+            math.ceil(df_failures["lifetime_d"].dropna().max()) + 1,
             1,
         )
         for time_interval, group in df_failures.groupby("evaluation_time_interval_h"):
-            if len(group["lifetime_s"].dropna()) == 0:
+            if len(group["lifetime_d"].dropna()) == 0:
                 continue
             ax.hist(
-                group["lifetime_s"] / 60 / 60,
+                group["lifetime_d"],
                 bins=bins,
-                label=f"{time_interval}h",
+                label=f"{time_interval}h ({len(group)})",
                 alpha=0.3,
             )
         ax.set_ylabel("Count")
-        ax.set_xlabel("DHT record lifetime\n(hours, 1h bins)")
+        ax.set_xlabel("DHT record lifetime\n(days, 1 day bins)")
         ax.set_title(
-            f"Failures ({len(df_failures["lifetime_s"].dropna())})\n"
+            f"Failures ({len(df_failures["lifetime_d"].dropna())})\n"
             "for different time intervals"
         )
         ax.legend()
@@ -92,21 +96,22 @@ def main(stats_json_uri: str, out_directory: str):
 
     # Visualize payload size distributions for successes vs failures
     f, ax = plt.subplots()
+    bins = range(0, math.ceil(df["payload_size_kib"].dropna().max()) + 1, 1)
     ax.hist(
-        df_successes["payload_size_b"],
-        bins=range(0, int(df["payload_size_b"].dropna().max()) + 1000, 1000),
-        label="Successes",
+        df_successes["payload_size_kib"],
+        bins=bins,
+        label=f"Successes ({len(df_successes)})",
         alpha=0.6,
     )
     if len(df_failures) > 0:
         ax.hist(
-            df_failures["payload_size_b"],
-            bins=range(0, int(df["payload_size_b"].dropna().max()) + 1000, 1000),
-            label="Failures",
+            df_failures["payload_size_kib"],
+            bins=bins,
+            label=f"Failures ({len(df_failures)})",
             alpha=0.6,
         )
     ax.set_ylabel("Count")
-    ax.set_xlabel("Payload size\n(bytes, 1kb bin size)")
+    ax.set_xlabel("Payload size\n(KiB, 1KiB bin size)")
     ax.set_title("Payload size\nsuccesses vs failures")
     ax.legend()
     f.tight_layout()
